@@ -126,6 +126,9 @@ class Feed extends Component {
     formData.append('image', postData.image);
     formData.append('content', postData.content);
     fetch(url, {
+      headers: {
+        Authorization: 'Bearer ' + this.props.token
+      },
       method: method,
       body: formData,
     })
@@ -180,6 +183,9 @@ class Feed extends Component {
   deletePostHandler = postId => {
     this.setState({ postsLoading: true });
     fetch(`http://localhost:8080/feed/post/${postId}`, {
+      headers: {
+        Authorization: 'Bearer ' + this.props.token
+      },
       method: 'DELETE'
     })
       .then(res => {
