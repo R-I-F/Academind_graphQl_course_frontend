@@ -67,15 +67,18 @@ class Feed extends Component {
     const graphqlQuery = {
       query: `
         query{
-          getPosts{
-            _id           
-            title
-            content
-            imageUrl
-            createdAt
-            creator{
-              name
+          posts(page: ${page}){
+            posts {
+              _id
+              title
+              content
+              imageUrl
+              creator {
+                name
+              }
+              createdAt
             }
+            totalPosts  
           }
         }
       `
@@ -95,15 +98,15 @@ class Feed extends Component {
         return res.json();
       })
       .then(resData => {
-        console.log(resData.data.getPosts);
+        console.log(resData.data.posts.posts);
         this.setState({
-          posts: resData.data.getPosts.map((post)=>{
+          posts: resData.data.posts.posts.map((post)=>{
             return {
               ...post,
               imagePath: post.imageUrl
             }
           }),
-          totalPosts: resData.totalItems,
+          totalPosts: resData.data.posts.totalPosts,
           postsLoading: false
         });
       })
@@ -157,42 +160,50 @@ class Feed extends Component {
     this.setState({
       editLoading: true
     });
-    // Set up data (with image!)
-    let url = 'http://localhost:8080/graphql';
-    let method = 'POST';
-    if (this.state.editPost) {
-      url = `http://localhost:8080/feed/post/${this.state.editPost._id}`;
-      method = 'PUT';
-    }
     const formData = new FormData();
-    formData.append('title', postData.title);
     formData.append('image', postData.image);
-    formData.append('content', postData.content);
-    let graphqlQuery = {
-      query: `
-        mutation{
-          createPost(postInput: {
-            title: "${postData.title}", imageUrl: "${postData.image}", content: "${postData.content}"}){
-              _id
-              title
-              content
-              imageUrl
-              creator{
-                name
-              }
-              createdAt
-              updatedAt
-            }
-        }
-      `
+    if(this.state.editPost){
+      formData.append('oldPath', this.state.editPost.imagePath);
     }
-    fetch(url, {
+    fetch('http://localhost:8080/post-image', {
+      method: 'PUT',
       headers: {
         Authorization: 'Bearer ' + this.props.token,
-        'Content-Type' : 'application/json'
       },
-      method: method,
-      body: JSON.stringify(graphqlQuery),
+      body: formData
+    })
+    .then(res=> {
+      return res.json()
+    })
+    .then(fileResData => {
+      const imageUrl = fileResData.filePath;
+      console.log(imageUrl);
+      console.log(this.props.token);
+      let graphqlQuery = {
+        query: `
+          mutation{
+            createPost(postInput: {
+              title: "${postData.title}", imageUrl: "${imageUrl}", content: "${postData.content}"}){
+                _id
+                title
+                content
+                imageUrl
+                creator{
+                  name
+                }
+                createdAt
+              }
+          }
+        `
+      }
+      return fetch('http://localhost:8080/graphql', {
+        headers: {
+          Authorization: 'Bearer ' + this.props.token,
+          'Content-Type' : 'application/json'
+        },
+        method: 'POST',
+        body: JSON.stringify(graphqlQuery),
+      })
     })
       .then(res => {
         return res.json();
@@ -214,11 +225,22 @@ class Feed extends Component {
           title: resData.data.createPost.title,
           content: resData.data.createPost.content,
           creator: resData.data.createPost.creator,
-          createdAt: resData.data.createPost.createdAt
+          createdAt: resData.data.createPost.createdAt,
+          imagePath: resData.data.createPost.imageUrl
         };
         this.setState(prevState => {
-          
+          let updatedPosts = [...prevState.posts];
+          if (prevState.editPost) {
+            const postIndex = prevState.posts.findIndex(
+              p => p._id === prevState.editPost._id
+            );
+            updatedPosts[postIndex] = post;
+          } else {
+            updatedPosts.pop();
+            updatedPosts.unshift(post);
+          }
           return {
+            posts: updatedPosts,
             isEditing: false,
             editPost: null,
             editLoading: false
