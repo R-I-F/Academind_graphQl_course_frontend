@@ -98,7 +98,6 @@ class Feed extends Component {
         return res.json();
       })
       .then(resData => {
-        console.log(resData.data.posts.posts);
         this.setState({
           posts: resData.data.posts.posts.map((post)=>{
             return {
@@ -176,8 +175,7 @@ class Feed extends Component {
       return res.json()
     })
     .then(fileResData => {
-      const imageUrl = fileResData.filePath;
-      console.log(imageUrl);
+      const imageUrl = fileResData.filePath.replace(/\\/g, '/');
       console.log(this.props.token);
       let graphqlQuery = {
         query: `
@@ -206,9 +204,11 @@ class Feed extends Component {
       })
     })
       .then(res => {
+      
         return res.json();
       })
       .then(resData => {
+        console.log(resData);
         if (resData.errors && resData.errors.length > 0) {
           if(resData.errors[0].status === 422 ){
             throw new Error('Validation failed.');
